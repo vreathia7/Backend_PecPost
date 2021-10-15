@@ -3,7 +3,14 @@ const router = express.Router()
 const mongoose = require('mongoose')
 const User = mongoose.model("User")
 const bcrypt = require('bcryptjs')
+require('dotenv').config()
+const jwt = require('jsonwebtoken')
 
+const requireLogin = require('../middleware/requireLogin')
+
+// router.get('/protected',requireLogin,(req,res)=>{
+//     res.send("hello user")
+// })
 
 router.post('/signup',(req,res)=>{
     const {firstName,lastName,email,password,username} = req.body
@@ -49,6 +56,35 @@ router.post('/signup',(req,res)=>{
     })
     .catch(err=>{
         console.log(err)
+    })
+})
+
+router.post('/signin',(req,res)=>{
+    const {username,password} = req.body
+    if(!username || !password){
+        res.status(422).json({error:"please add Username or Password"})
+    }
+    User.findOne({username:username})
+    .then(savedUser=>{
+        if(!savedUser){
+           return res.status(422).json({error:"Invalid Username or Password"})
+        }
+
+        bcrypt.compare(password,savedUser.password)
+        .then(doMatch=>{
+            if(doMatch){
+                //res.json({message:"sucessfully signed in"})
+                const token = jwt.sign({_id:savedUser._id},process.env.JWT_SECRET)
+                const {_id,firstName,lastName,username,email} = savedUser
+                res.json({token,user:{_id,firstName,lastName,username,email}})
+            }
+            else{
+                return res.status(422).json({error:"Invalid Username or Password"})
+            }
+        })
+        .catch(err=>{
+            console.log(err)
+        })
     })
 })
 
